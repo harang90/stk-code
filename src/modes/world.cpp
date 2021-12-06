@@ -87,6 +87,7 @@
 #include <ctime>
 #include <sstream>
 #include <stdexcept>
+#include <iostream>
 
 
 World* World::m_world[PT_COUNT];
@@ -1166,6 +1167,7 @@ void World::updateGraphics(float dt)
  */
 void World::update(int ticks)
 {
+    // std::cout << __func__ << " called\n";
 #ifdef DEBUG
     assert(m_magic_number == 0xB01D6543);
 #endif
@@ -1222,6 +1224,21 @@ void World::update(int ticks)
 
     PROFILER_POP_CPU_MARKER();
     updateTimeTargetSound();
+
+    // get manager
+    unsigned int num_karts = getNumKarts();
+    for (unsigned int i = 0; i < num_karts; i++)
+    {
+        AbstractKart* kart = getKart(i);
+        getFkart->frontXYZ()
+
+
+        m_previous_steer = kart->getControls().getSteer();
+        uint16_t m_accel;
+        bool  m_brake;
+
+        
+    }
 
 #ifdef DEBUG
     assert(m_magic_number == 0xB01D6543);
