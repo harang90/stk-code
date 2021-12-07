@@ -17,6 +17,7 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "modes/world.hpp"
+#include "modes/soccer_world.hpp"
 
 #include "audio/music_manager.hpp"
 #include "audio/sfx_base.hpp"
@@ -88,6 +89,9 @@
 #include <sstream>
 #include <stdexcept>
 #include <iostream>
+
+#include <tracks/check_goal.hpp>
+#include <modes/json.hpp>
 
 
 World* World::m_world[PT_COUNT];
@@ -685,6 +689,8 @@ World::~World()
     m_magic_number = 0xDEADBEEF;
 #endif
 
+    file_.close();
+
 }   // ~World
 
 //-----------------------------------------------------------------------------
@@ -1226,18 +1232,91 @@ void World::update(int ticks)
     updateTimeTargetSound();
 
     // get manager
+
+    std::array<float, 3> location = { 0,0,0 };
+    std::array<float, 4> rotation = { 0,0,0,1 };
+    std::array<float, 3> front = { 0,0,0 };
+
+    float m_steer;
+    float m_accel;
+    bool  m_brake;
+
+    using json = nlohmann::json;
+    json data;
+
+
+    data["actions"] = json::array();
+    data["team1_state"] = json::array();
     unsigned int num_karts = getNumKarts();
     for (unsigned int i = 0; i < num_karts; i++)
     {
         AbstractKart* kart = getKart(i);
-        getFkart->frontXYZ()
+        if (kart->getController()->isLocalPlayerController()) {
+            front = {kart->getFrontXYZ().getX(), kart->getFrontXYZ().getY(), kart->getFrontXYZ().getZ()};
+            location = {kart->getXYZ().getX(), kart->getXYZ().getY(), kart->getXYZ().getZ()};
+            rotation = { kart->getRotation().x(), kart->getRotation().y(), kart->getRotation().z(), kart->getRotation().w() };
 
+            json json_kart;
+            json json_kart_info;
+            json_kart_info["location"] = location;
+            json_kart_info["front"] = front;
+            json_kart_info["rotation"] = rotation;
+            json_kart["kart"] = json_kart_info;
+            data["team1_state"].push_back(json_kart);
 
-        m_previous_steer = kart->getControls().getSteer();
-        uint16_t m_accel;
-        bool  m_brake;
+            m_steer = kart->getControls().getSteer();
+            m_accel = kart->getControls().getAccel();
+            m_brake = kart->getControls().getBrake();
 
-        
+            json action;
+            action["acceleration"] = m_accel;
+            action["steer"] = m_steer;
+            action["brake"] = m_brake;
+
+            data["actions"].push_back(action);
+        }
+    }
+
+    json soccer_state;
+
+    SoccerWorld* sw = dynamic_cast<SoccerWorld*>(this);
+    std::array<float, 3> ball_location = { 0,0,0 };
+    ball_location = { sw->getBallPosition().getX(), sw->getBallPosition().getY(), sw->getBallPosition().getZ() };
+    soccer_state["ball"]["location"] = ball_location;
+
+    soccer_state["goal_line"] = json::array();
+    unsigned int n = Track::getCurrentTrack()->getCheckManager()->getCheckStructureCount();
+    json goal_line_array;
+    for (unsigned int i = 0; i < n; i++)
+    {
+        CheckGoal* goal = dynamic_cast<CheckGoal*>(Track::getCurrentTrack()->getCheckManager()->getCheckStructure(i));
+        std::array<std::array<std::array<float, 3>, 2>, 2> goal_line;
+
+        if (goal) {
+            std::array<float, 3> one = { goal->getPoint(CheckGoal::POINT_FIRST).getX(), goal->getPoint(CheckGoal::POINT_FIRST).getY(), goal->getPoint(CheckGoal::POINT_FIRST).getZ() };
+            std::array<float, 3> two = { goal->getPoint(CheckGoal::POINT_LAST).getX(), goal->getPoint(CheckGoal::POINT_LAST).getY(), goal->getPoint(CheckGoal::POINT_LAST).getZ() };
+            goal_line[(int)goal->getTeam()] = {one, two};
+            if ((int)goal->getTeam() == 0) {
+                goal_line_array["one"] = { one, two };
+            }
+            else if ((int)goal->getTeam() == 1) {
+                goal_line_array["two"] = { one, two };
+            }
+        }
+    }
+    soccer_state["goal_line"].push_back(goal_line_array["one"]);
+    soccer_state["goal_line"].push_back(goal_line_array["two"]);
+
+    data["soccer_state"] = soccer_state;
+
+    if (!file_.is_open()) {
+        file_.open("play_data.state", std::ofstream::app);
+    }
+    if (file_.good()) {
+        file_ << data.dump();
+    }
+    else {
+        std::cout << "file open error\n";
     }
 
 #ifdef DEBUG

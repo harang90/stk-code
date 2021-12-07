@@ -31,6 +31,7 @@
 #include <memory>
 #include <vector>
 #include <stdexcept>
+#include <fstream>
 
 #include "graphics/weather.hpp"
 #include "modes/world_status.hpp"
@@ -89,6 +90,9 @@ class World : public WorldStatus
 public:
     typedef std::vector<std::shared_ptr<AbstractKart> > KartList;
 private:
+
+    std::ofstream file_;
+
     /** A pointer to the global world object for a race. */
     static World *m_world[PT_COUNT];
     // ------------------------------------------------------------------------
