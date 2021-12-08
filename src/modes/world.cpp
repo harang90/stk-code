@@ -1313,7 +1313,7 @@ void World::update(int ticks)
         file_.open("play_data.state", std::ofstream::app);
     }
     if (file_.good()) {
-        file_ << data.dump();
+        file_ << data << std::endl;
     }
     else {
         std::cout << "file open error\n";
