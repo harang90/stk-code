@@ -1245,11 +1245,13 @@ void World::update(int ticks)
     json data;
 
 
-    data["actions"] = json::array();
+    data["actionsTeamOne"] = json::array();
+    data["actionsTeamTwo"] = json::array();
     data["team1_state"] = json::array();
+    data["team2_state"] = json::array();
+    data["actions"] = json::array();
     unsigned int num_karts = getNumKarts();
-    for (unsigned int i = 0; i < num_karts; i++)
-    {
+    for (unsigned int i = 0; i < num_karts; i++) {
         AbstractKart* kart = getKart(i);
         if (kart->getController()->isLocalPlayerController()) {
             front = {kart->getFrontXYZ().getX(), kart->getFrontXYZ().getY(), kart->getFrontXYZ().getZ()};
@@ -1262,7 +1264,12 @@ void World::update(int ticks)
             json_kart_info["front"] = front;
             json_kart_info["rotation"] = rotation;
             json_kart["kart"] = json_kart_info;
-            data["team1_state"].push_back(json_kart);
+            if (getKartTeam(kart->getWorldKartId()) == 0) {
+                data["team1_state"].push_back(json_kart);
+            }
+            else {
+                data["team2_state"].push_back(json_kart);
+            }
 
             m_steer = kart->getControls().getSteer();
             m_accel = kart->getControls().getAccel();
@@ -1272,10 +1279,18 @@ void World::update(int ticks)
             action["acceleration"] = m_accel;
             action["steer"] = m_steer;
             action["brake"] = m_brake;
-
-            data["actions"].push_back(action);
+            if (getKartTeam(kart->getWorldKartId()) == 0) {
+                data["actionsTeamOne"].push_back(action);
+            }
+            else {
+                data["actionsTeamTwo"].push_back(action);
+            }
         }
     }
+    data["actions"].push_back(data["actionsTeamOne"][0]);
+    data["actions"].push_back(data["actionsTeamOne"][1]);
+    data["actions"].push_back(data["actionsTeamTwo"][0]);
+    data["actions"].push_back(data["actionsTeamTwo"][1]);
 
     json soccer_state;
 
